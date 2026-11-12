@@ -1,0 +1,71 @@
+---
+- name: Prepare DevOps Host Environment (Ubuntu 24.04)
+  hosts: local_node
+  become: true
+
+  vars:
+    kind_version: "v0.24.0"
+    kubectl_version: "v1.31.1"
+    target_user: "{{ ansible_env.SUDO_USER | default('kirill') }}"
+
+  tasks:
+    - name: Install base prerequisites
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - jq
+        state: present
+        update_cache: true
+
+    - name: Add Docker GPG key and repository
+      shell: |
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://docker.com -o /etc/apt/keyrings/docker.asc
+        chmod a+r /etc/apt/keyrings/docker.asc
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://docker.com $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      args:
+        creates: /etc/apt/sources.list.d/docker.list
+
+    - name: Install Docker Engine
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Add user to docker group
+      user:
+        name: "{{ target_user }}"
+        groups: docker
+        append: true
+
+    - name: Install kubectl
+      get_url:
+        url: "https://k8s.io{{ kubectl_version }}/bin/linux/amd64/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+
+    - name: Install Kind
+      get_url:
+        url: "https://k8s.io{{ kind_version }}/kind-linux-amd64"
+        dest: /usr/local/bin/kind
+        mode: '0755'
+
+    - name: Install Helm via official script
+      shell: curl -fsSL https://githubusercontent.com | bash
+      args:
+        creates: /usr/local/bin/helm
+
+    - name: Add local domains to /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 shortener.local grafana.local"
+        state: present

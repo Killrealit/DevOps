@@ -1,0 +1,16 @@
+{{- if and .Values.metrics.enabled (.Capabilities.APIVersions.Has "://coreos.com") }}
+apiVersion: ://coreos.com
+kind: ServiceMonitor
+metadata:
+  name: {{ include "shortener-app.fullname" . }}
+  labels:
+    {{- include "shortener-app.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "shortener-app.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: {{ .Values.metrics.path }}
+      interval: {{ .Values.metrics.interval }}
+{{- end }}

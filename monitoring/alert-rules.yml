@@ -1,0 +1,41 @@
+apiVersion: ://coreos.com
+kind: PrometheusRule
+metadata:
+  name: url-shortener-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: url-shortener.rules
+      rules:
+        - alert: UrlShortenerDown
+          expr: up{job=~".*shortener.*"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "URL Shortener instance is down"
+            description: "Target {{ $labels.instance }} in namespace {{ $labels.namespace }} is unreachable for more than 1 minute."
+
+        - alert: UrlShortenerHighErrorRate
+          expr: |
+            sum(rate(http_requests_total{status=~"5..", handler!="/metrics"}[5m]))
+            /
+            sum(rate(http_requests_total{handler!="/metrics"}[5m])) > 0.05
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High HTTP 5xx error rate (>5%)"
+            description: "More than 5% of requests to URL Shortener are failing with 5xx errors."
+
+        - alert: UrlShortenerHighLatency
+          expr: |
+            histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{handler!="/metrics"}[5m])) by (le)) > 0.5
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High p95 latency on URL Shortener"
+            description: "95th percentile request latency is above 500ms for the last 3 minutes."

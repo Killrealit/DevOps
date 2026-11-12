@@ -1,0 +1,76 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/your-username/url-shortener
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: shortener.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    path: /ready
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+config:
+  LOG_LEVEL: "INFO"
+  ENVIRONMENT: "production"
+  BASE_URL: "http://shortener.local"
+  REDIS_HOST: "redis-master"
+  REDIS_PORT: "6379"
+  POSTGRES_HOST: "postgres-postgresql"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "shortener"
+
+secrets:
+  POSTGRES_USER: "shortener_user"
+  POSTGRES_PASSWORD: "changeme_in_ci"
+  SECRET_KEY: "super_secret_jwt_or_app_key"
+
+metrics:
+  enabled: true
+  path: /metrics
+  interval: 15s
